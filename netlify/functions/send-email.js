@@ -1,9 +1,9 @@
-import nodemailer from "nodemailer";
+const nodemailer = require("nodemailer");
 
-export async function handler(event) {
+exports.handler = async (event) => {
   try {
-    // Parse incoming data from form
-    const { name, email, message } = JSON.parse(event.body);
+    // Parse form data from frontend
+    const { name, email, subject, message } = JSON.parse(event.body);
 
     // Configure Hostinger SMTP
     const transporter = nodemailer.createTransport({
@@ -12,21 +12,35 @@ export async function handler(event) {
       secure: true,
       auth: {
         user: process.env.EMAIL_USER, // info@prime.talha-solutions.site
-        pass: process.env.EMAIL_PASS, // your Hostinger mailbox password
+        pass: process.env.EMAIL_PASS, // Hostinger mailbox password
       },
     });
 
-    // Email details
+    // Send email to yourself (your business inbox)
     await transporter.sendMail({
-      from: `"Website Contact" <${process.env.EMAIL_USER}>`,
-      to: "yourpersonal@gmail.com", // Change to your receiving address
-      subject: `New message from ${name}`,
+      from: `"${name}" <${process.env.EMAIL_USER}>`,
+      to: "info@prime.talha-solutions.site", // 👈 your receiving address (you)
+      replyTo: email, // so you can reply directly to sender
+      subject: subject || `New message from ${name}`,
       html: `
-        <h2>New Contact Message</h2>
-        <p><b>Name:</b> ${name}</p>
-        <p><b>Email:</b> ${email}</p>
-        <p><b>Message:</b></p>
+        <h2>New Contact Message from Website</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>Message:</strong></p>
         <p>${message}</p>
+      `,
+    });
+
+    // Optional: Send auto-confirmation to the user
+    await transporter.sendMail({
+      from: `"Talha Solutions" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "We received your message ✅",
+      html: `
+        <p>Hi ${name},</p>
+        <p>Thanks for contacting us! We’ve received your message and will get back to you shortly.</p>
+        <p>— Team Talha Solutions</p>
       `,
     });
 
@@ -35,9 +49,10 @@ export async function handler(event) {
       body: JSON.stringify({ success: true, message: "Email sent successfully!" }),
     };
   } catch (error) {
+    console.error("Email send failed:", error);
     return {
       statusCode: 500,
       body: JSON.stringify({ success: false, error: error.message }),
     };
   }
-}
+};
